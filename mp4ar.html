@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AR Video </title>
+
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js/aframe/build/aframe-ar.min.js"></script>
+
+    <style>
+        body { margin: 0; overflow: hidden; }
+        video { transform: scaleX(-1); }
+    </style>
+</head>
+<body>
+    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
+        <a-assets>
+            <video id="video" src="video.mp4" loop muted playsinline crossorigin="anonymous"></video>
+        </a-assets>
+
+        <a-marker preset="hiro" id="marker">
+            <a-video src="#video" width="1.2" height="1.2" position="0 0 0" rotation="-90 0 0" scale="-1 1 1"></a-video>
+        </a-marker>
+
+        <a-entity camera scale="-1 1 1"></a-entity> 
+    </a-scene>
+
+    <script>
+        let marker = document.getElementById("marker");
+        let video = document.getElementById("video");
+
+        marker.addEventListener("markerFound", () => {
+            console.log("Marker found!");
+            video.currentTime = 0; // Phát lại từ đầu
+            video.play().catch(e => console.log("Không thể phát video:", e));
+        });
+
+        marker.addEventListener("markerLost", () => {
+            console.log("Marker lost!");
+            video.pause();
+        });
+    </script>
+</body>
+</html>
+
