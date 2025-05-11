@@ -273,92 +273,72 @@
 
       AFRAME.registerComponent("freeze-tracking", {
         schema: {
-          frameStable: { type: "number", default: 15 },
+          frameStable: { type: "number", default: 15 }, // Số frame ổn định trước khi freeze
         },
 
         init: function () {
           this.isFrozen = false;
-          this.frozenPosition = new THREE.Vector3();
-          this.frozenRotation = new THREE.Euler();
-          this.lastPosition = new THREE.Vector3();
-          this.startTracking = false;
-          this.trackingStableCount = 0;
-          this.originalVisible = false;
-          this.internalVisible = false;
+          this.frozenMatrix = new THREE.Matrix4(); // Ma trận lưu vị trí + quay
+          this.frameStableCount = 0;
+          this.lastMatrix = new THREE.Matrix4(); // Ma trận lần trước để so sánh
+          this.visibleOnce = false; // Đánh dấu đã từng thấy marker
+          this.modelEntity = null;
+          this.hasModel = false;
 
           this.el.addEventListener("targetFound", () => {
-            console.log("Target found - bắt đầu ổn định tracking");
-            this.startTracking = true;
-            this.trackingStableCount = 0;
+            this.visibleOnce = true;
+            this.frameStableCount = 0;
             this.isFrozen = false;
-            this.originalVisible = true;
-            this.internalVisible = true;
             this.el.object3D.visible = true;
           });
 
           this.el.addEventListener("targetLost", () => {
-            this.originalVisible = false;
-
+            this.visibleOnce = false;
             if (!this.isFrozen) {
-              this.internalVisible = false;
               this.el.object3D.visible = false;
             }
           });
-
-          this.reset = () => {
-            this.isFrozen = false;
-            this.startTracking = this.originalVisible;
-            this.trackingStableCount = 0;
-            this.internalVisible = this.originalVisible;
-            this.el.object3D.visible = this.originalVisible;
-          };
         },
 
         tick: function () {
-          const object3D = this.el.object3D;
-          this.originalVisible = object3D.visible;
+          const obj = this.el.object3D;
 
+          // Nếu đã freeze thì giữ nguyên vị trí và không update từ marker nữa
           if (this.isFrozen) {
-            // Đã đóng băng - đảm bảo vị trí không thay đổi và visible đúng
-            object3D.position.copy(this.frozenPosition);
-            object3D.rotation.copy(this.frozenRotation);
-            object3D.visible = this.internalVisible;
+            obj.matrix.copy(this.frozenMatrix);
+            obj.matrix.decompose(obj.position, obj.quaternion, obj.scale);
             return;
           }
 
-          if (!this.originalVisible) {
-            this.startTracking = false;
-            return;
+          // Chưa thấy marker thì không làm gì
+          if (!this.visibleOnce) return;
+
+          // Nếu marker đã visible, kiểm tra sự ổn định
+          const currentMatrix = obj.matrix.clone();
+
+          if (this.lastMatrix.equals(currentMatrix)) {
+            this.frameStableCount++;
+          } else {
+            this.frameStableCount = 0;
           }
 
-          if (this.startTracking) {
-            const currentPosition = object3D.position.clone();
+          this.lastMatrix.copy(currentMatrix);
 
-            if (this.lastPosition.length() > 0) {
-              const movement = this.lastPosition.distanceTo(currentPosition);
-
-              if (movement < 0.001) {
-                this.trackingStableCount++;
-              } else {
-                this.trackingStableCount = 0;
-              }
-
-              if (this.trackingStableCount >= this.data.frameStable) {
-                console.log(
-                  `Đã đóng băng vị trí sau ${this.data.frameStable} frame ổn định`
-                );
-
-                // Lưu vị trí và góc xoay
-                this.frozenPosition.copy(currentPosition);
-                this.frozenRotation.copy(object3D.rotation.clone());
-
-                this.isFrozen = true;
-                this.internalVisible = true;
-              }
-            }
-
-            this.lastPosition.copy(currentPosition);
+          // Nếu đủ số frame ổn định => freeze lại vị trí
+          if (this.frameStableCount >= this.data.frameStable) {
+            console.log("✅ Đã ổn định marker - Freeze mô hình.");
+            this.frozenMatrix.copy(currentMatrix);
+            this.isFrozen = true;
           }
+        },
+
+        resetFreeze: function () {
+          this.isFrozen = false;
+          this.frameStableCount = 0;
+          this.lastMatrix.identity();
+          this.frozenMatrix.identity();
+          this.visibleOnce = false;
+          this.el.object3D.visible = false;
         },
       });
 
@@ -535,13 +515,13 @@
         Đang tải dữ liệu 3D...
       </p>
     </div>
-
     <a-scene
-      mindar-image="imageTargetSrc: targets-multi.mind; autoStart: true; uiScanning: true; uiLoading: true;"
+      mindar-image="imageTargetSrc: targets-multi.mind; autoStart: true; uiScanning: true; uiLoading: true;
+                filterMinCF: 0.001; filterBeta: 0.001;"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
       embedded
-      renderer="colorManagement: true; physicallyCorrectLights"
+      renderer="colorManagement: true; physicallyCorrectLights: true"
     >
       <a-assets>
         <a-asset-item id="model0" src="Model0.glb"></a-asset-item>
@@ -554,79 +534,92 @@
 
       <!-- Target 0 -->
       <a-entity mindar-image-target="targetIndex: 0" freeze-tracking>
-        <a-entity id="model-container-0" rotation="0 0 0" rotate-and-zoom>
-          <a-entity
-            id="model-0"
-            gltf-model="#model0"
-            position="0 0 0"
-            scale="0.5 0.5 0.5"
-            rotation="0 180 0"
-          ></a-entity>
+        <!-- Lớp dùng để cố định vị trí marker -->
+        <a-entity id="model-anchor" position="0 0 0" rotation="0 0 0">
+          <a-entity id="model-container-0" rotation="0 0 0" rotate-and-zoom>
+            <a-entity
+              id="model-0"
+              gltf-model="#model0"
+              position="0 0 0"
+              scale="0.5 0.5 0.5"
+              rotation="0 180 0"
+            ></a-entity>
+          </a-entity>
         </a-entity>
       </a-entity>
 
       <!-- Target 1 -->
       <a-entity mindar-image-target="targetIndex: 1" freeze-tracking>
-        <a-entity id="model-container-1" rotation="0 0 0" rotate-and-zoom>
-          <a-entity
-            id="model-1"
-            gltf-model="#model1"
-            position="0 0 0"
-            scale="0.5 0.5 0.5"
-            rotation="0 180 0"
-          ></a-entity>
+        <a-entity id="anchor-1">
+          <a-entity id="model-container-1" rotation="0 0 0" rotate-and-zoom>
+            <a-entity
+              id="model-1"
+              gltf-model="#model1"
+              position="0 0 0"
+              scale="0.5 0.5 0.5"
+              rotation="0 180 0"
+            ></a-entity>
+          </a-entity>
         </a-entity>
       </a-entity>
 
       <!-- Target 2 -->
       <a-entity mindar-image-target="targetIndex: 2" freeze-tracking>
-        <a-entity id="model-container-2" rotation="0 0 0" rotate-and-zoom>
-          <a-entity
-            id="model-2"
-            gltf-model="#model2"
-            position="0 0 0"
-            scale="0.5 0.5 0.5"
-            rotation="0 180 0"
-          ></a-entity>
+        <a-entity id="anchor-2">
+          <a-entity id="model-container-2" rotation="0 0 0" rotate-and-zoom>
+            <a-entity
+              id="model-2"
+              gltf-model="#model2"
+              position="0 0 0"
+              scale="0.5 0.5 0.5"
+              rotation="0 180 0"
+            ></a-entity>
+          </a-entity>
         </a-entity>
       </a-entity>
 
       <!-- Target 3 -->
       <a-entity mindar-image-target="targetIndex: 3" freeze-tracking>
-        <a-entity id="model-container-3" rotation="0 0 0" rotate-and-zoom>
-          <a-entity
-            id="model-3"
-            gltf-model="#model3"
-            position="0 0 0"
-            scale="0.5 0.5 0.5"
-            rotation="0 180 0"
-          ></a-entity>
+        <a-entity id="anchor-3">
+          <a-entity id="model-container-3" rotation="0 0 0" rotate-and-zoom>
+            <a-entity
+              id="model-3"
+              gltf-model="#model3"
+              position="0 0 0"
+              scale="0.5 0.5 0.5"
+              rotation="0 180 0"
+            ></a-entity>
+          </a-entity>
         </a-entity>
       </a-entity>
 
       <!-- Target 4 -->
       <a-entity mindar-image-target="targetIndex: 4" freeze-tracking>
-        <a-entity id="model-container-4" rotation="0 0 0" rotate-and-zoom>
-          <a-entity
-            id="model-4"
-            gltf-model="#model4"
-            position="0 0 0"
-            scale="0.5 0.5 0.5"
-            rotation="0 180 0"
-          ></a-entity>
+        <a-entity id="anchor-4">
+          <a-entity id="model-container-4" rotation="0 0 0" rotate-and-zoom>
+            <a-entity
+              id="model-4"
+              gltf-model="#model4"
+              position="0 0 0"
+              scale="0.5 0.5 0.5"
+              rotation="0 180 0"
+            ></a-entity>
+          </a-entity>
         </a-entity>
       </a-entity>
 
       <!-- Target 5 -->
       <a-entity mindar-image-target="targetIndex: 5" freeze-tracking>
-        <a-entity id="model-container-5" rotation="0 0 0" rotate-and-zoom>
-          <a-entity
-            id="model-5"
-            gltf-model="#model5"
-            position="0 0 0"
-            scale="0.5 0.5 0.5"
-            rotation="0 180 0"
-          ></a-entity>
+        <a-entity id="anchor-5">
+          <a-entity id="model-container-5" rotation="0 0 0" rotate-and-zoom>
+            <a-entity
+              id="model-5"
+              gltf-model="#model5"
+              position="0 0 0"
+              scale="0.5 0.5 0.5"
+              rotation="0 180 0"
+            ></a-entity>
+          </a-entity>
         </a-entity>
       </a-entity>
 
