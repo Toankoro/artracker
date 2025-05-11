@@ -293,10 +293,10 @@
           });
 
           this.el.addEventListener("targetLost", () => {
-            this.visibleOnce = false;
-            if (!this.isFrozen) {
-              this.el.object3D.visible = false;
-            }
+            this.startTracking = false;
+            this.isFrozen = false;
+            this.trackingStableCount = 0;
+            this.el.object3D.visible = false; // Ẩn ngay lập tức khi mất marker
           });
         },
 
