@@ -9,6 +9,7 @@
     <!-- MindAR 1.1.5 -->
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.1.5/dist/mindar-image-aframe.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-physics-system@4.0.1/dist/aframe-physics-system.min.js"></script>
     <style>
       video {
         transform: none;
@@ -488,6 +489,38 @@
           });
         });
       });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        for (let i = 0; i <= 2; i++) {
+          const target = document.querySelector(
+            `[mindar-image-target="targetIndex: ${i}"]`
+          );
+          if (target) {
+            target.addEventListener("targetFound", () => {
+              for (let j = 0; j <= 2; j++) {
+                const audio = document.getElementById(`audio-${j}`);
+                if (audio) {
+                  audio.pause();
+                  audio.currentTime = 0;
+                }
+              }
+
+              const audio = document.getElementById(`audio-${i}`);
+              if (audio) {
+                audio.currentTime = 0;
+                audio.play();
+              }
+            });
+            target.addEventListener("targetLost", () => {
+              const audio = document.getElementById(`audio-${i}`);
+              if (audio) {
+                audio.pause();
+                audio.currentTime = 0;
+              }
+            });
+          }
+        }
+      });
     </script>
   </head>
   <body style="margin: 0; overflow: hidden">
@@ -518,6 +551,8 @@
     <a-scene
       mindar-image="imageTargetSrc: targets-multi.mind; autoStart: true; uiScanning: true; uiLoading: true;
                 filterMinCF: 0.001; filterBeta: 0.001;"
+      physics="gravity: -9.8; debug: false"
+      color-space="sRGB"
       vr-mode-ui="enabled: false"
       device-orientation-permission-ui="enabled: false"
       embedded
@@ -531,9 +566,54 @@
         <a-asset-item id="model4" src="Model4.glb"></a-asset-item>
         <a-asset-item id="model5" src="Model5.glb"></a-asset-item>
       </a-assets>
+      <!-- Các đèn chiếu sáng toàn hướng -->
+      <a-light type="ambient" color="#ffffff" intensity="1.0"></a-light>
 
+      <a-light
+        type="directional"
+        color="#ffffff"
+        intensity="1.0"
+        position="0 4 0"
+      ></a-light>
+      <a-light
+        type="directional"
+        color="#ffffff"
+        intensity="0.6"
+        position="0 -4 0"
+      ></a-light>
+      <a-light
+        type="directional"
+        color="#ffffff"
+        intensity="0.8"
+        position="0 0 4"
+      ></a-light>
+      <a-light
+        type="directional"
+        color="#ffffff"
+        intensity="0.7"
+        position="0 0 -4"
+      ></a-light>
+      <a-light
+        type="directional"
+        color="#ffffff"
+        intensity="0.6"
+        position="-4 0 0"
+      ></a-light>
+      <a-light
+        type="directional"
+        color="#ffffff"
+        intensity="0.6"
+        position="4 0 0"
+      ></a-light>
       <!-- Target 0 -->
       <a-entity mindar-image-target="targetIndex: 0" freeze-tracking>
+        <a-plane
+          width="1"
+          height="1"
+          visible="false"
+          rotation="-90 0 0"
+          static-body
+        ></a-plane>
         <!-- Lớp dùng để cố định vị trí marker -->
         <a-entity id="model-anchor" position="0 0 0" rotation="0 0 0">
           <a-entity id="model-container-0" rotation="0 0 0" rotate-and-zoom>
@@ -550,6 +630,13 @@
 
       <!-- Target 1 -->
       <a-entity mindar-image-target="targetIndex: 1" freeze-tracking>
+        <a-plane
+          width="1"
+          height="1"
+          visible="false"
+          rotation="-90 0 0"
+          static-body
+        ></a-plane>
         <a-entity id="anchor-1">
           <a-entity id="model-container-1" rotation="0 0 0" rotate-and-zoom>
             <a-entity
@@ -565,6 +652,13 @@
 
       <!-- Target 2 -->
       <a-entity mindar-image-target="targetIndex: 2" freeze-tracking>
+        <a-plane
+          width="1"
+          height="1"
+          visible="false"
+          rotation="-90 0 0"
+          static-body
+        ></a-plane>
         <a-entity id="anchor-2">
           <a-entity id="model-container-2" rotation="0 0 0" rotate-and-zoom>
             <a-entity
@@ -580,6 +674,13 @@
 
       <!-- Target 3 -->
       <a-entity mindar-image-target="targetIndex: 3" freeze-tracking>
+        <a-plane
+          width="1"
+          height="1"
+          visible="false"
+          rotation="-90 0 0"
+          static-body
+        ></a-plane>
         <a-entity id="anchor-3">
           <a-entity id="model-container-3" rotation="0 0 0" rotate-and-zoom>
             <a-entity
@@ -595,6 +696,13 @@
 
       <!-- Target 4 -->
       <a-entity mindar-image-target="targetIndex: 4" freeze-tracking>
+        <a-plane
+          width="1"
+          height="1"
+          visible="false"
+          rotation="-90 0 0"
+          static-body
+        ></a-plane>
         <a-entity id="anchor-4">
           <a-entity id="model-container-4" rotation="0 0 0" rotate-and-zoom>
             <a-entity
@@ -610,6 +718,13 @@
 
       <!-- Target 5 -->
       <a-entity mindar-image-target="targetIndex: 5" freeze-tracking>
+        <a-plane
+          width="1"
+          height="1"
+          visible="false"
+          rotation="-90 0 0"
+          static-body
+        ></a-plane>
         <a-entity id="anchor-5">
           <a-entity id="model-container-5" rotation="0 0 0" rotate-and-zoom>
             <a-entity
@@ -640,5 +755,8 @@
         ＋ Zoom in
       </button>
     </div>
+    <audio id="audio-0" src="audio0.mp3"></audio>
+    <audio id="audio-1" src="audio1.mp3"></audio>
+    <audio id="audio-2" src="audio2.mp3"></audio>
   </body>
 </html>
