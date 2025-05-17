@@ -491,6 +491,26 @@
       });
 
       document.addEventListener("DOMContentLoaded", () => {
+        let currentAudioIndex = null;
+        const replayBtn = document.getElementById("replay-btn");
+
+        function replayAudio() {
+          if (currentAudioIndex === null) return;
+
+          const audio = document.getElementById(`audio-${currentAudioIndex}`);
+          if (audio) {
+            audio.currentTime = 0;
+            audio.play();
+            replayBtn.disabled = true;
+
+            audio.onended = () => {
+              replayBtn.disabled = false;
+            };
+          }
+        }
+
+        window.replayAudio = replayAudio; // expose to global scope for onclick
+
         for (let i = 0; i <= 2; i++) {
           const target = document.querySelector(
             `[mindar-image-target="targetIndex: ${i}"]`
@@ -507,15 +527,34 @@
 
               const audio = document.getElementById(`audio-${i}`);
               if (audio) {
+                currentAudioIndex = i;
+                replayBtn.disabled = true;
+
+                // play only if user gesture occurred
                 audio.currentTime = 0;
-                audio.play();
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                  playPromise.catch((e) => {
+                    console.warn("Autoplay prevented:", e);
+                  });
+                }
+
+                audio.onended = () => {
+                  replayBtn.disabled = false;
+                };
               }
             });
+
             target.addEventListener("targetLost", () => {
               const audio = document.getElementById(`audio-${i}`);
               if (audio) {
                 audio.pause();
                 audio.currentTime = 0;
+              }
+
+              if (currentAudioIndex === i) {
+                currentAudioIndex = null;
+                replayBtn.disabled = true;
               }
             });
           }
@@ -753,6 +792,14 @@
       </button>
       <button class="control-button" onclick="zoomModel('in')">
         ＋ Zoom in
+      </button>
+      <button
+        id="replay-btn"
+        class="control-button"
+        onclick="replayAudio()"
+        disabled
+      >
+        Replay
       </button>
     </div>
     <audio id="audio-0" src="audio0.mp3"></audio>
